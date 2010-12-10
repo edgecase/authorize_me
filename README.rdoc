@@ -1,0 +1,34 @@
+AuthorizeMe
+===
+
+Authorize me is a plugin for Rails to handle simple role-based authorization. It is similar in style to can-can.
+
+Example
+===
+
+  class User < ActiveRecord::Base
+    authorize_me
+  
+    authorize do |role|
+      role.owner :can => [:read, :update, :create]
+      role.owner :can => :destroy, :unless  => :self?
+      role.admin :can => [:read, :create]
+      role.admin :can => :update,  :unless => :owner?
+      role.admin :can => :destroy, :unless => :owner_or_self?
+    end
+  end
+
+  class Feature < ActiveRecord::Base
+    authorize do |role|
+      role.owner  :can => :manage
+      role.admin  :can => :manage
+      role.member :can => :read, :if => :has_application_read_permission?
+      role.member :can => [:create, :update, :destroy], :if => :has_application_write_permission?
+    end
+  end       
+
+The above code would give you the ability to query user permissions in a view or controller
+  current_user.can_destroy?(@feature)
+
+
+Copyright (c) 2010 Adam McCrea, released under the MIT license
