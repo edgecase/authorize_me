@@ -1,34 +1,74 @@
-AuthorizeMe
-===
+= authorize_me
 
-Authorize me is a plugin for Rails to handle simple role-based authorization. It is similar in style to can-can.
+authorize_me is a gem for Rails to handle simple role-based authorization. It is similar in style to can-can.
+The largest difference is that authorization rules are defined in the model they protect rather than one centralized location.
 
-Example
-===
+== Set up the user model
 
-  class User < ActiveRecord::Base
+Tell the gem which model to treat as the "user".
+
+  class User
     authorize_me
-  
-    authorize do |role|
-      role.owner :can => [:read, :update, :create]
-      role.owner :can => :destroy, :unless  => :self?
-      role.admin :can => [:read, :create]
-      role.admin :can => :update,  :unless => :owner?
-      role.admin :can => :destroy, :unless => :owner_or_self?
+  end
+
+The following methods are generated:
+
+  User#can_create?(obj)
+  User#can_read?(obj)
+  User#can_update?(obj)
+  User#can_destroy?(obj)
+
+Each of these methods can take a model class, instance, or symbol.
+
+The user model is expected to have a role method that returns a string or symbol.
+It could be a DB column or a method you define.  Here is an example:
+
+  def role
+    if admin?
+      :admin
+    else
+      user_type
     end
   end
 
-  class Feature < ActiveRecord::Base
-    authorize do |role|
-      role.owner  :can => :manage
-      role.admin  :can => :manage
-      role.member :can => :read, :if => :has_application_read_permission?
-      role.member :can => [:create, :update, :destroy], :if => :has_application_write_permission?
+== Declare authorization rules
+
+Authorization rules are declared in each model where they apply
+
+  class Article
+    authorization do |role|
+      role.admin     :can => :manage
+      role.publisher :can => :manage, :if => :author?
+      role.publisher :can => [:read, :create]
+      role.any       :can => :read
     end
-  end       
+  end
 
-The above code would give you the ability to query user permissions in a view or controller
-  current_user.can_destroy?(@feature)
+In this example a publisher can always read and create articles, 
+but they can only manage articles for which they are the author.  
+This declaration assumes there is an Article#author? method which
+takes a user argument and returns a boolean. 
 
+:manage is shorthand for [:create, :read, :update, :destroy]
+
+== In your controllers
+
+The unauthorized! method simply raises an AuthorizeMe::Unauthorized exception
+for you to handle as you choose.
+
+  def show
+    @article = Article.find(params[:id])
+    unauthorized! unless current_user.can_read?(@article)
+  end
+
+== In your views
+
+  <% if current_user.can_update?(@article) %>
+    <%= link_to 'edit', edit_article_path(@article) %>
+  <% end %>
 
 Copyright (c) 2010 Adam McCrea, released under the MIT license
+
+
+
+
